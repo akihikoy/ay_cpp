@@ -23,13 +23,6 @@ struct TPose {double X[7]; /*[0-2]: position x,y,z, [3-6]: orientation qx,qy,qz,
 struct TPosVel {double X[6]; /*[0-2]: position x,y,z, [3-5]: velocity vx,vy,vz.*/};
 //-------------------------------------------------------------------------------------------
 
-template <typename t_value>
-inline t_value Sq(const t_value &val)
-{
-  return val*val;
-}
-//-------------------------------------------------------------------------------------------
-
 /* Pose to Eigen::Affine3d.
     x: [0-2]: position x,y,z, [3-6]: orientation x,y,z,w. */
 template <typename t_value>
