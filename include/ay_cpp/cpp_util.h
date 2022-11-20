@@ -24,6 +24,26 @@ inline t_value Sq(const t_value &val)
 }
 //-------------------------------------------------------------------------------------------
 
+template<typename t_value>
+t_value Mean(const std::vector<t_value> &vec)
+{
+  t_value sum(0.0);
+  for(typename std::vector<t_value>::const_iterator itr(vec.begin()),itr_end(vec.end());
+      itr!=itr_end; ++itr)
+    sum+= *itr;
+  return sum/(t_value)(vec.size());
+}
+//-------------------------------------------------------------------------------------------
+
+template<typename t_value>
+inline t_value Median(std::vector<t_value> &vec)
+{
+  std::sort(vec.begin(),vec.end());
+  if(vec.size()%2==1)  return vec[(vec.size()-1)/2];
+  return 0.5*(vec[vec.size()/2-1]+vec[vec.size()/2]);
+}
+//-------------------------------------------------------------------------------------------
+
 inline std::string ToString(const std::string &prefix, int num, const std::string &posix="")
 {
   std::stringstream ss;
