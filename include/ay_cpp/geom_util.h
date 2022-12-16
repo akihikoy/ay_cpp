@@ -17,6 +17,10 @@ namespace trick
 {
 //-------------------------------------------------------------------------------------------
 
+//-------------------------------------------------------------------------------------------
+// Basic geometory utilities.
+//-------------------------------------------------------------------------------------------
+
 // For STL containers:
 struct TPos {double X[3]; /*[0-2]: position x,y,z.*/};
 struct TPose {double X[7]; /*[0-2]: position x,y,z, [3-6]: orientation qx,qy,qz,qw.*/};
@@ -142,9 +146,134 @@ inline void GetAxisAngle(const t_value v1[3], const t_value v2[3], t_array &axis
 }
 //-------------------------------------------------------------------------------------------
 
+// (Ported from ay_py.core.geom)
+// Orthogonalize a vector vec w.r.t. base; i.e. vec is modified so that dot(vec,base)==0.
+// original_norm: keep original vec's norm, otherwise the norm is 1.
+// Using The Gram-Schmidt process: http://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process
+template <typename t_value>
+inline void Orthogonalize(const t_value vec[3], const t_value base[3], t_value out[3], bool original_norm=true)
+{
+  typedef Eigen::Matrix<t_value,3,1> Vector3;
+  Vector3 v(vec);
+  Vector3 vbase= Vector3(base).normalized();
+  Vector3 v2= v - v.dot(vbase)*vbase;
+  Eigen::Map<Vector3> vout(out);
+  vout= (original_norm ? (v2.normalized()*v.norm()) : v2.normalized());
+}
+//-------------------------------------------------------------------------------------------
+
+// (Ported from ay_py.core.geom)
+// Get an orthogonal axis of a given axis
+// preferable: preferable axis (orthogonal axis is close to this)
+// fault: return this axis when dot(axis,preferable)==1
+template <typename t_value>
+inline void GetOrthogonalAxisOf(const t_value axis[3], t_value out[3], const t_value preferable[3]=NULL, const t_value fault[]=NULL)
+{
+  static const t_value default_preferable[3]= {0.0,0.0,1.0};
+  if(preferable==NULL)  preferable= default_preferable;
+  typedef Eigen::Matrix<t_value,3,1> Vector3;
+  t_value naxis[3];
+  Eigen::Map<Vector3> vnaxis(naxis);
+  vnaxis= Vector3(axis).normalized();
+
+  if(fault==NULL || 1.0-std::fabs(vnaxis.dot(Vector3(preferable)))>=1.0e-6)
+    Orthogonalize(preferable, /*base=*/naxis, out, /*original_norm=*/false);
+  else
+  {
+    Eigen::Map<Vector3> vout(out);
+    vout= Vector3(fault);
+  }
+}
+//-------------------------------------------------------------------------------------------
+
+// (Ported from ay_py.core.geom)
+// For visualizing cylinder, arrow, etc., get a pose x from two points p1-->p2.
+// Axis ax decides which axis corresponds to p1-->p2.
+// Ratio r decides: r=0: x is on p1, r=1: x is on p2, r=0.5: x is on the middle of p1 and p2.
+template <typename t_value>
+inline void XFromP1P2(const t_value p1[3], const t_value p2[3], t_value x_out[7], char ax='z', const t_value &r=0.5)
+{
+  typedef Eigen::Matrix<t_value,3,1> Vector3;
+  typedef Eigen::Matrix<t_value,4,1> Vector4;
+  typedef Eigen::Matrix<t_value,7,1> Vector7;
+  Vector3 v1(p1), v2(p2);
+  t_value aex[3],aey[3],aez[3];
+  Eigen::Map<Vector3> ex(aex),ey(aey),ez(aez);
+  if(ax=='x')
+  {
+    ex= (v2-v1).normalized();
+    t_value preferable[]={0.0,1.0,0.0}, fault[]={0.0,0.0,1.0};
+    GetOrthogonalAxisOf(aex, /*out=*/aey, preferable, fault);
+    ez= ex.cross(ey);
+  }
+  else if(ax=='y')
+  {
+    ey= (v2-v1).normalized();
+    t_value preferable[]={0.0,0.0,1.0}, fault[]={1.0,0.0,0.0};
+    GetOrthogonalAxisOf(aey, /*out=*/aez, preferable, fault);
+    ex= ey.cross(ez);
+  }
+  else if(ax=='z')
+  {
+    ez= (v2-v1).normalized();
+    t_value preferable[]={1.0,0.0,0.0}, fault[]={0.0,1.0,0.0};
+    GetOrthogonalAxisOf(aez, /*out=*/aex, preferable, fault);
+    ey= ez.cross(ex);
+  }
+  Eigen::Map<Vector7> x(x_out);
+  x.segment(0,3)= (1.0-r)*v1+r*v2;
+  Eigen::Matrix<t_value,3,3> rot;
+  rot<<ex,ey,ez;
+  Eigen::Quaternion<t_value> q(rot);
+  x.segment(3,4)= Vector4(q.x(),q.y(),q.z(),q.w());
+}
+//-------------------------------------------------------------------------------------------
+
+
+
+//-------------------------------------------------------------------------------------------
+// Utility for ROS::geometry_msgs
+//-------------------------------------------------------------------------------------------
+
+// Convert p to geometry_msgs/Point; usually, t_point==geometry_msgs::Point
+template <typename t_array, typename t_point>
+inline void PToGPoint(const t_array p, t_point &point)
+{
+  point.x= p[0];
+  point.y= p[1];
+  point.z= p[2];
+}
+// Convert p to geometry_msgs/Point; usually, t_point==geometry_msgs::Point
+template <typename t_point, typename t_array>
+inline t_point PToGPoint(const t_array p)
+{
+  t_point point;
+  PToGPoint<t_array,t_point>(p, point);
+  return point;
+}
+//-------------------------------------------------------------------------------------------
+
+// Convert a vector of p to a vector of geometry_msgs/Point; usually, t_point==geometry_msgs::Point
+template <typename t_array, typename t_point>
+inline void PToGPointVector(const std::vector<t_array> ps, std::vector<t_point> &points)
+{
+  points.resize(ps.size());
+  for(int i(0),i_end(ps.size()); i<i_end; ++i)
+    PToGPoint(ps[i], points[i]);
+}
+// Convert a vector of p to a vector of geometry_msgs/Point; usually, t_point==geometry_msgs::Point
+template <typename t_point, typename t_array>
+inline std::vector<t_point> PToGPointVector(const std::vector<t_array> ps)
+{
+  std::vector<t_point> points(ps.size());
+  PToGPointVector<t_array,t_point>(ps, points);
+  return points;
+}
+//-------------------------------------------------------------------------------------------
+
 // Convert geometry_msgs/Point to p; usually, t_point==geometry_msgs::Point
-template <typename t_point, typename t_value>
-inline void GPointToP(const t_point &point, t_value p[3])
+template <typename t_point, typename t_array>
+inline void GPointToP(const t_point &point, t_array p)
 {
   p[0]= point.x;
   p[1]= point.y;
@@ -152,10 +281,9 @@ inline void GPointToP(const t_point &point, t_value p[3])
 }
 //-------------------------------------------------------------------------------------------
 
-
 // Convert x to geometry_msgs/Pose; usually, t_pose==geometry_msgs::Pose
-template <typename t_value, typename t_pose>
-inline void XToGPose(const t_value x[7], t_pose &pose)
+template <typename t_array, typename t_pose>
+inline void XToGPose(const t_array x, t_pose &pose)
 {
   pose.position.x= x[0];
   pose.position.y= x[1];
@@ -166,18 +294,36 @@ inline void XToGPose(const t_value x[7], t_pose &pose)
   pose.orientation.w= x[6];
 }
 // Convert x to geometry_msgs/Pose; usually, t_pose==geometry_msgs::Pose
-template <typename t_pose, typename t_value>
-inline t_pose XToGPose(const t_value x[7])
+template <typename t_pose, typename t_array>
+inline t_pose XToGPose(const t_array x)
 {
   t_pose pose;
-  XToGPose<t_value,t_pose>(x, pose);
+  XToGPose<t_array,t_pose>(x, pose);
   return pose;
 }
 //-------------------------------------------------------------------------------------------
 
+// Convert a vector of x to a vector of geometry_msgs/Pose; usually, t_pose==geometry_msgs::Pose
+template <typename t_array, typename t_pose>
+inline void XToGPoseVector(const std::vector<t_array> xs, std::vector<t_pose> &poses)
+{
+  poses.resize(xs.size());
+  for(int i(0),i_end(xs.size()); i<i_end; ++i)
+    XToGPose(xs[i], poses[i]);
+}
+// Convert a vector of x to a vector of geometry_msgs/Pose; usually, t_pose==geometry_msgs::Pose
+template <typename t_pose, typename t_array>
+inline std::vector<t_pose> XToGPoseVector(const std::vector<t_array> xs)
+{
+  std::vector<t_pose> poses(xs.size());
+  XToGPoseVector<t_array,t_pose>(xs, poses);
+  return poses;
+}
+//-------------------------------------------------------------------------------------------
+
 // Convert geometry_msgs/Pose to x; usually, t_pose==geometry_msgs::Pose
-template <typename t_pose, typename t_value>
-inline void GPoseToX(const t_pose &pose, t_value x[7])
+template <typename t_pose, typename t_array>
+inline void GPoseToX(const t_pose &pose, t_array x)
 {
   x[0]= pose.position.x;
   x[1]= pose.position.y;
@@ -188,6 +334,50 @@ inline void GPoseToX(const t_pose &pose, t_value x[7])
   x[6]= pose.orientation.w;
 }
 //-------------------------------------------------------------------------------------------
+
+// t_point: e.g. geometry_msgs::Point, Vector3
+template<typename t_point, typename t_value=double>
+inline t_point GenGPoint(const t_value &x=0.0, const t_value &y=0.0, const t_value &z=0.0)
+{
+  t_point p;
+  p.x= x;
+  p.y= y;
+  p.z= z;
+  return p;
+}
+//-------------------------------------------------------------------------------------------
+// t_quaternion: e.g. geometry_msgs::Quaternion
+template<typename t_quaternion, typename t_value=double>
+inline t_quaternion GenGQuaternion(const t_value &x=0.0, const t_value &y=0.0, const t_value &z=0.0, const t_value &w=0.0)
+{
+  t_quaternion p;
+  p.x= x;
+  p.y= y;
+  p.z= z;
+  p.w= w;
+  return p;
+}
+//-------------------------------------------------------------------------------------------
+// t_rgba: e.g. geometry_msgs::ColorRGBA
+template<typename t_rgba, typename t_value_r=double, typename t_value_g=double, typename t_value_b=double, typename t_value_a=double>
+inline t_rgba GenGRBGA(const t_value_r &r=1.0, const t_value_g &g=1.0, const t_value_b &b=1.0, const t_value_a &a=1.0)
+{
+  t_rgba c;
+  c.r= r;
+  c.g= g;
+  c.b= b;
+  c.a= a;
+  return c;
+}
+//-------------------------------------------------------------------------------------------
+
+
+
+
+//-------------------------------------------------------------------------------------------
+// Advanced geometory utilities.
+//-------------------------------------------------------------------------------------------
+
 
 /* Find a least square solution of W in W*x=y for {(x,y)}.
     x= (x_1,...,x_d); d: dim of x.
