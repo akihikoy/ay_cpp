@@ -35,12 +35,26 @@ t_value Mean(const std::vector<t_value> &vec)
 }
 //-------------------------------------------------------------------------------------------
 
+// Return a median of vec.
+// NOTE: vec is modified (sorted).
 template<typename t_value>
 inline t_value Median(std::vector<t_value> &vec)
 {
   std::sort(vec.begin(),vec.end());
   if(vec.size()%2==1)  return vec[(vec.size()-1)/2];
   return 0.5*(vec[vec.size()/2-1]+vec[vec.size()/2]);
+}
+//-------------------------------------------------------------------------------------------
+
+// Return a q-th percentile of vec.
+// NOTE: vec is modified (sorted).
+// NOTE: This method calculates a "lower" value of percentile.
+template<typename t_value>
+inline t_value Percentile(std::vector<t_value> &vec, const double &q)
+{
+  std::sort(vec.begin(),vec.end());
+  int nth= std::max(0, std::min(int(vec.size()-1), int(q*vec.size()-1)));
+  return vec[nth];
 }
 //-------------------------------------------------------------------------------------------
 
