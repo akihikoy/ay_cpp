@@ -56,7 +56,7 @@ public:
 
   TSimpleVisualizer() {}
 
-  void Setup(const ros::Duration &viz_dt=ros::Duration(), const std::string &name_space="visualizer",
+  virtual void Setup(const ros::Duration &viz_dt=ros::Duration(), const std::string &name_space="visualizer",
              const std::string &frame="", int queue_size=1, const std::string &topic="visualization_marker")
     {
       ros::NodeHandle node;
@@ -402,7 +402,7 @@ public:
 
   TSimpleVisualizerArray() {}
 
-  void Setup(const ros::Duration &viz_dt=ros::Duration(), const std::string &name_space="visualizer",
+  /*override*/void Setup(const ros::Duration &viz_dt=ros::Duration(), const std::string &name_space="visualizer",
              const std::string &frame="", int queue_size=1, const std::string &topic="visualization_marker_array")
     {
       TSimpleVisualizer::Setup(viz_dt, name_space, frame, queue_size, /*topic=*/"");
