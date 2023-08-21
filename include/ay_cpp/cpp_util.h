@@ -12,6 +12,8 @@
 #include <sstream>
 #include <cstdlib>  // strtol, atol
 #include <cctype>
+#include <vector>
+#include <string>
 //-------------------------------------------------------------------------------------------
 namespace trick
 {
@@ -95,6 +97,44 @@ int FindIndex(const t_vector &vec, typename t_vector::const_reference val)
 }
 //-------------------------------------------------------------------------------------------
 
+// Split a string str by  delimiter delim.
+inline void SplitString(const std::string &str, std::vector<std::string> &result, char delim=',')
+{
+  std::stringstream ss(str);
+  result.clear();
+  while(ss.good())
+  {
+    std::string substr;
+    std::getline(ss, substr, delim);
+    result.push_back(substr);
+  }
+}
+// Split a string str by  delimiter delim.
+inline std::vector<std::string> SplitString(const std::string &str, char delim=',')
+{
+  std::vector<std::string> result;
+  SplitString(str, result, delim);
+  return result;
+}
+//-------------------------------------------------------------------------------------------
+
+// Make a vector of path: [base_dir+f for f in file_names].
+inline std::vector<std::string> PathJoin(const std::string base_dir, const std::vector<std::string> &file_names)
+{
+  std::string delim;
+  std::vector<std::string> result;
+  for(std::vector<std::string>::const_iterator fitr(file_names.begin()),fitr_end(file_names.end());
+      fitr!=fitr_end; ++fitr)
+  {
+    if((base_dir.size()>0&&base_dir.back()=='/') || (fitr->size()>0&&fitr->front()=='/'))
+      delim= "";
+    else
+      delim= "/";
+    result.push_back(base_dir+delim+*fitr);
+  }
+  return result;
+}
+//-------------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------------------------
 }  // end of trick
