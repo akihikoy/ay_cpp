@@ -51,12 +51,31 @@ inline t_value Median(std::vector<t_value> &vec)
 // Return a q-th percentile of vec.
 // NOTE: vec is modified (sorted).
 // NOTE: This method calculates a "lower" value of percentile.
-template<typename t_value>
-inline t_value Percentile(std::vector<t_value> &vec, const double &q)
+template<typename t_value, typename t_percent>
+inline t_value Percentile(std::vector<t_value> &vec, const t_percent &q)
 {
   std::sort(vec.begin(),vec.end());
   int nth= std::max(0, std::min(int(vec.size()-1), int(q*vec.size()-1)));
   return vec[nth];
+}
+//-------------------------------------------------------------------------------------------
+
+// Fast percentile using order statistic index (no interpolation)
+// p in [0,100], returns element at round(p/100*(N-1))
+template<typename t_value, typename t_percent>
+inline t_value PercentileByIndex(std::vector<t_value> v, const t_percent &p)
+{
+  const int n = static_cast<int>(v.size());
+  if (n == 0)  return t_value(0);
+  if (p <= 0.0f)
+    return *std::min_element(v.begin(), v.end());
+  else if (p >= 100.0f)
+    return *std::max_element(v.begin(), v.end());
+  const t_percent pos = p * 0.01f * static_cast<t_percent>(n - 1);
+  int k = static_cast<int>(std::round(pos));
+  k = std::max(0, std::min(n - 1, k));
+  std::nth_element(v.begin(), v.begin() + k, v.end());
+  return v[k];
 }
 //-------------------------------------------------------------------------------------------
 
